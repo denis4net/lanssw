@@ -1,3 +1,7 @@
 *.o
 *.lib
-*bin/*
+*out/*
+server
+client
+*.elf
+*.kde*

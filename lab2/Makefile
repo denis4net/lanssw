@@ -1,16 +1,15 @@
 
+SRC:=server.c client.c
+
 .PHONY: clean
 
-all: out/server out/client
-	
+all: $(patsubst %.c, out/%, $(SRC))
 
-out/server: out
-	$(CC) server.c -g -o out/server
-out/client: out
-	$(CC) client.c -g  -o out/client
+out/%: out $(SRC)
+	$(CC) $(patsubst out/%, %.c, $@) -o $@
 
 out:
 	mkdir -p out
 
 clean: 
-	rm -f lab1
+	rm -f out/*
