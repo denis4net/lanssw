@@ -26,11 +26,14 @@ int tcpv4_connect(char* ipv4, char *tcp_port)
   in_addr_t ip = inet_addr( ipv4  );
   unsigned short int port = atoi( tcp_port );
   
+  if(ip==0)
+    return -1;
+  
   struct sockaddr_in server_addr;
   memset((void*)&server_addr, 0x0, sizeof(server_addr));
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(port);
-    
+  server_addr.sin_addr.s_addr = ip;
   int sockfd = socket( PF_INET, SOCK_STREAM, IPPROTO_TCP );
   if( sockfd == -1 )
     return -1;
