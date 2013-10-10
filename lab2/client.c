@@ -35,6 +35,10 @@ int tcpv4_connect(char* ipv4, char *tcp_port)
   if( sockfd == -1 )
     return -1;
   
+  int opt=1;
+  if( setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) == -1)
+    return -1;
+  
   if( connect(sockfd, &server_addr, sizeof(server_addr)) == -1 )
     return -1;
 
@@ -82,14 +86,22 @@ int main(int argc, char** argv)
     /*send data size for receiving */
     off_t fsize = file_size(fd); 
     uint32_t send_size = fsize-offset;
-    printf("Sending %u bytes data size to server\n", send_size);
+    
+    if(offset == fsize)
+       printf("File exist on server");
+    else if(offset !=0 )
+      printf("Redownloading. Sending %u bytes data size to server\n", send_size);
+    else if(send_size != 0)
+      printf("Sending %u bytes data size to server\n", send_size);
+   
+    
     send(sockfd, &send_size, sizeof(send_size), 0x0);
     /* start reciving*/
     size_t readed=0;
     size_t sended=0;
     
     uint8_t buf[BUFSIZE];
-    while( (readed = read(fd, buf, BUFSIZE)) != 0 && readed != -1 )
+    while( (readed = read(fd, buf, BUFSIZE)) != 0 && readed != -1 && send_size!=0)
     {
 	status = send(sockfd, buf, readed, 0x0);
 	if(status == -1 )

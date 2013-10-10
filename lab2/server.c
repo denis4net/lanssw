@@ -45,21 +45,18 @@ int main(int argc, char** argv)
 {
       signal(SIGPIPE, signal_handler);
   
-      if( argc != 3 )
-      {
+      if( argc != 3 ) {
 	fprintf(stderr, "use: server <listen_ip> <port>\n");
 	return 1;
       }
     
       int sockfd = tcpv4_bind(argv[1], argv[2]);
-      if(sockfd == -1)
-      {
+      if(sockfd == -1)  {
 	perror("Can't init socket");
 	return 2;
       }
       
-      if( listen( sockfd, 1 ) )
-      {
+      if( listen( sockfd, 1 ) ) {
 	perror("can't start listening");
 	return 2;
       }
@@ -71,14 +68,14 @@ int main(int argc, char** argv)
       struct sockaddr_in client_addr;
       int size = sizeof(client_addr);
       
-      while( ( client_sockfd = accept( sockfd, &client_addr, &size ) ) != -1 )
-      {
+      while( ( client_sockfd = accept( sockfd, &client_addr, &size ) ) != -1 ) {
+	int opt=1;
+	setsockopt(client_sockfd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)); 
 	printf("Connection opened with %s\n", inet_ntoa(client_addr.sin_addr));
 	uint32_t flen, status;
 	
 	status  = recv(client_sockfd, &flen, sizeof(flen), MSG_WAITALL);
-	if(status == -1)
-	{
+	if(status == -1) {
 	  perror("Can't receive file name size");
 	  return 5;
 	}
@@ -86,9 +83,13 @@ int main(int argc, char** argv)
 	char fname[flen+1];
 	memset(fname, 0x0, sizeof(fname));
 	status = recv(client_sockfd, fname, flen, MSG_WAITALL);
-	assert(status != -1 );
+	if(status==-1) {
+	  perror("Can't receive file name");
+	  continue;
+	}
 	
 	int fd = open(fname, O_WRONLY| O_APPEND | O_CREAT, 0755);
+	//send file open status
 	status = errno;
 	send(client_sockfd, &status, sizeof(status), 0);
 	
@@ -104,44 +105,39 @@ int main(int argc, char** argv)
 	recv(client_sockfd, &data_size, sizeof(data_size), 0x0);
 	
 	display_status=0;
-	while(common_readed != data_size)
-	{
+	common_readed=0;
+	while(common_readed != data_size) {
 	  status = recv( client_sockfd, buffer, sizeof(buffer), 0x0);
 	  common_readed +=  status;
 	  
-	 if( display_status == RECV_STATUS_CYCLES)
-	 {
+	 if( display_status == RECV_STATUS_CYCLES)  {
 	   printf("\033[0G%10.2lf KB received",  common_readed/1024.0);
 	    display_status=0;
 	 }
 	 else
 	   display_status++;
 	 
-	 if(  status == -1 ||  status == 0 ) 
-	 {
-	    perror("Client disconected");
+	 if(  status == -1 ||  status == 0 )  {
+	    perror("\nClient disconected");
 	    break;
 	  }
-	  if( write(fd, buffer,  status) == -1 )
-	  {
-	    perror("Can't write to file");
+	 else if( write(fd, buffer,  status) == -1 )  {
+	    perror("\nCan't write to file");
 	    break;
 	  }
 	}
 	
-	if( common_readed == data_size )
-	{
+	if( common_readed == data_size ) {
 	  status=0;
 	  send(client_sockfd, &status, sizeof(status), 0x0);
 	  printf("\nAll data received\n");
 	}
-	else
-	{
-	  fprintf(stderr, "Not add data received from client: %s\n", strerror(errno));
+	else {
+	  fprintf(stderr, "\nNot all data received from client\n");
 	}
 	close(fd);
 	close(client_sockfd);
-	printf("Connection closed\n\n");
+	printf("\nConnection closed\n\n");
       }
       
       perror("Socket accept error");
