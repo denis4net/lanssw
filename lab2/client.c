@@ -20,6 +20,27 @@ inline off_t file_size(int fd)
   return _stat.st_size;
 }
 
+int tcpv4_connect(char* ipv4, char *tcp_port)
+{
+    /* Init addr struct */
+  in_addr_t ip = inet_addr( ipv4  );
+  unsigned short int port = atoi( tcp_port );
+  
+  struct sockaddr_in server_addr;
+  memset((void*)&server_addr, 0x0, sizeof(server_addr));
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(port);
+    
+  int sockfd = socket( PF_INET, SOCK_STREAM, IPPROTO_TCP );
+  if( sockfd == -1 )
+    return -1;
+  
+  if( connect(sockfd, &server_addr, sizeof(server_addr)) == -1 )
+    return -1;
+
+  return sockfd;
+}
+
 int main(int argc, char** argv)
 {  
   if( argc != 5 )
@@ -29,32 +50,15 @@ int main(int argc, char** argv)
   }
   /* Get file name */
   char* fname = strdup(argv[4]);
-  
-  /* Init addr struct */
-  in_addr_t ip = inet_addr( argv[1] );
-  unsigned short int port = atoi( argv[2] );
-  
-  struct sockaddr_in server_addr;
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(port);
-  
-  /* open file for read */
   int fd = open(argv[3], O_RDONLY);
   assert(fd != -1);
-  
-  int sockfd = socket( PF_INET, SOCK_STREAM, IPPROTO_TCP );
-  if( sockfd == -1 )
-  {
-      perror("Can't create socket");
-      return 3;
-  }
-  
-  if( connect(sockfd, &server_addr, sizeof(server_addr)) == -1 )
-  {
-    perror("Can't connect to server");
-    return 4;
-  }
 
+  int sockfd = tcpv4_connect(argv[1], argv[2]);
+  if(sockfd == -1 )
+  {
+    perror("Can't connect to host");
+    return 3;
+  }
   /* send file name size and file name*/
   {
     uint32_t len = strlen(fname);
@@ -63,6 +67,13 @@ int main(int argc, char** argv)
   }
   /* send file content*/
   {
+    int32_t status;
+     recv(sockfd, &status, sizeof(status), MSG_WAITALL);
+    if(status != 0 )
+    {
+      fprintf(stderr, "Error on server side: %s\n\n", strerror(status));
+      return 4;
+    }
     /*recv file offset and seek in file */
     uint32_t offset;
     recv(sockfd, &offset, sizeof(offset), MSG_WAITALL);
@@ -75,37 +86,32 @@ int main(int argc, char** argv)
     send(sockfd, &send_size, sizeof(send_size), 0x0);
     /* start reciving*/
     size_t readed=0;
-    size_t sended;
-    int32_t status;
+    size_t sended=0;
     
     uint8_t buf[BUFSIZE];
-    
     while( (readed = read(fd, buf, BUFSIZE)) != 0 && readed != -1 )
     {
-	sended=0;
-	do 
+	status = send(sockfd, buf, readed, 0x0);
+	if(status == -1 )
 	{
-	    status = send(sockfd, buf+sended, readed-sended, 0x0);
-	    if(status == -1 )
-	    {
-	      perror("Can't send data to server");
-	      break;
-	    }
-	    readed += status;
-	} while(sended != readed);
-	
-	/*connection breaked*/
-	if(status == -1)
+	  perror("Can't send data to server");
 	  break;
+	}
 	else
-	  printf("\033[0JSended %3u\%  to server", readed/send_size);
-	
+	{
+	  sended+=status;
+	  if( !  (sended % 1024 ) )
+	    printf("\033[0G%3.2lf sended", (double) ((sended+offset)*100.0)/fsize );
+	}
     }
     
     if( readed == -1 )
-    {
       perror("Can't read file");
-    }
+    
+    /* recv status status */
+    recv(sockfd, &status, sizeof(status), MSG_WAITALL);
+    if(status != 0 )
+      fprintf(stderr, "Error on server side: %s\n\n", strerror(status));
   }  
   close(fd);
   

@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define BUFSIZE 1024
 #define RECV_STATUS_CYCLES 1024
@@ -22,22 +23,12 @@ inline off_t file_size(int fd)
   return _stat.st_size;
 }
 
-int main(int argc, char** argv)
+int tcpv4_bind(const char* ipv4, const char* tcp_port)
 {
-      signal(SIGPIPE, signal_handler);
-  
-      if( argc != 3 )
-      {
-	fprintf(stderr, "use: server <listen_ip> <port>\n");
-	return 10;
-      }
-            
-      unsigned short int port = atoi( argv[2] );
-      in_addr_t ip = inet_addr( argv[1] );
+   unsigned short int port = atoi( tcp_port );
+      in_addr_t ip = inet_addr( ipv4 );
       
-      struct sockaddr_in sockaddr;
-      struct sockaddr_in client_addr;
-      
+      struct sockaddr_in sockaddr;   
       memset( &sockaddr, 0x0, sizeof(sockaddr) );
       sockaddr.sin_family = PF_INET;
       sockaddr.sin_port = htons( port ); 
@@ -46,9 +37,25 @@ int main(int argc, char** argv)
       int sockfd = socket( PF_INET, SOCK_STREAM, IPPROTO_TCP );
       
       if( bind( sockfd, &sockaddr, sizeof( sockaddr ) ) )
+	return -1;
+      return sockfd;
+}
+
+int main(int argc, char** argv)
+{
+      signal(SIGPIPE, signal_handler);
+  
+      if( argc != 3 )
       {
-	perror("can't bind socket");
+	fprintf(stderr, "use: server <listen_ip> <port>\n");
 	return 1;
+      }
+    
+      int sockfd = tcpv4_bind(argv[1], argv[2]);
+      if(sockfd == -1)
+      {
+	perror("Can't init socket");
+	return 2;
       }
       
       if( listen( sockfd, 1 ) )
@@ -61,6 +68,7 @@ int main(int argc, char** argv)
       printf("Start listening at %s:%s\n", argv[1], argv[2] );
       
       char buffer[BUFSIZE];
+      struct sockaddr_in client_addr;
       int size = sizeof(client_addr);
       
       while( ( client_sockfd = accept( sockfd, &client_addr, &size ) ) != -1 )
@@ -81,8 +89,8 @@ int main(int argc, char** argv)
 	assert(status != -1 );
 	
 	int fd = open(fname, O_WRONLY| O_APPEND | O_CREAT, 0755);
-	assert(fd!=-1);
-	
+	status = errno;
+	send(client_sockfd, &status, sizeof(status), 0);
 	
 	//send file offset
 	{
@@ -95,8 +103,6 @@ int main(int argc, char** argv)
 	uint32_t data_size, common_readed, display_status;
 	recv(client_sockfd, &data_size, sizeof(data_size), 0x0);
 	
-	
-	
 	display_status=0;
 	while(common_readed != data_size)
 	{
@@ -105,7 +111,7 @@ int main(int argc, char** argv)
 	  
 	 if( display_status == RECV_STATUS_CYCLES)
 	 {
-	   printf("\033[0J%6d bytes received",  common_readed);
+	   printf("\033[0G%10.2lf KB received",  common_readed/1024.0);
 	    display_status=0;
 	 }
 	 else
@@ -122,15 +128,23 @@ int main(int argc, char** argv)
 	    break;
 	  }
 	}
-	if( common_readed == data_size )
-	  printf("\nAll data received\n");
 	
+	if( common_readed == data_size )
+	{
+	  status=0;
+	  send(client_sockfd, &status, sizeof(status), 0x0);
+	  printf("\nAll data received\n");
+	}
+	else
+	{
+	  fprintf(stderr, "Not add data received from client: %s\n", strerror(errno));
+	}
 	close(fd);
 	close(client_sockfd);
 	printf("Connection closed\n\n");
       }
-      perror("Socket accept error");
       
+      perror("Socket accept error");
       return 0;
 }
 

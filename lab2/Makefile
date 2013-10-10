@@ -6,7 +6,7 @@ SRC:=server.c client.c
 all: $(patsubst %.c, out/%, $(SRC))
 
 out/%: out $(SRC)
-	$(CC) $(patsubst out/%, %.c, $@) -o $@
+	$(CC) $(patsubst out/%, %.c, $@) -o $@ -g
 
 out:
 	mkdir -p out
