@@ -22,30 +22,30 @@ inline off_t file_size(int fd)
 
 int tcpv4_connect(char* ipv4, char *tcp_port)
 {
-    /* Init addr struct */
-  in_addr_t ip = inet_addr( ipv4  );
-  unsigned short int port = atoi( tcp_port );
-  
-  if(ip==0)
-    return -1;
-  
-  struct sockaddr_in server_addr;
-  memset((void*)&server_addr, 0x0, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(port);
-  server_addr.sin_addr.s_addr = ip;
-  int sockfd = socket( PF_INET, SOCK_STREAM, IPPROTO_TCP );
-  if( sockfd == -1 )
-    return -1;
-  
-  int opt=1;
-  if( setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) == -1)
-    return -1;
-  
-  if( connect(sockfd, &server_addr, sizeof(server_addr)) == -1 )
-    return -1;
+	/* Init addr struct */
+	in_addr_t ip = inet_addr( ipv4  );
+	unsigned short int port = atoi( tcp_port );
 
-  return sockfd;
+	if(ip==0)
+	return -1;
+
+	struct sockaddr_in server_addr;
+	memset((void*)&server_addr, 0x0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(port);
+	server_addr.sin_addr.s_addr = ip;
+	int sockfd = socket( PF_INET, SOCK_STREAM, IPPROTO_TCP );
+	if( sockfd == -1 )
+	return -1;
+
+	int opt=1;
+	if( setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) == -1)
+	return -1;
+
+	if( connect(sockfd, &server_addr, sizeof(server_addr)) == -1 )
+	return -1;
+
+	return sockfd;
 }
 
 int main(int argc, char** argv)
