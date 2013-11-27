@@ -1,6 +1,6 @@
 *.o
 *.lib
-*out/*
+out/*
 server
 client
 *.elf
