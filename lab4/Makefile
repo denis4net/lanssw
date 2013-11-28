@@ -1,22 +1,23 @@
 BIN:= server client
-SERVER_SRC:=common.c server.c
+SERVER_SRC:=common.c server.c tcp.c udp.c
 CLIENT_SRC:= common.c client.c
 
 ########################################################
-SERVER_OBJS:= $(patsubst out/%, %.c, $(SERVER_SRC)) 
-CLIENT_OBJS:= $(patsubst out/%, %.c, $(CLIENT_SRC))
+SERVER_OBJS:= $(patsubst %.c, out/%.o, $(SERVER_SRC)) 
+CLIENT_OBJS:= $(patsubst %.c, out/%.o, $(CLIENT_SRC))
 ########################################################
 
 .PHONY: clean
 
-all: server client
-
-%.c: 
-	$(CC) $(patsubst out/%, $@, out/%.c) -o $@ -g
-
 server: $(SERVER_OBJS)	
-	
+	$(CC) $(SERVER_OBJS) -o out/$@
+
 client: $(CLIENT_OBJS)
+	$(CC) $(CLIENT_OBJS) -o out/$@
+	
+%.o: 
+	$(CC) $(patsubst out/%.o,  %.c, $@) -c -o $@ -g
+
 
 out:
 	mkdir -p out

@@ -11,7 +11,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-
 int udpv4_bind(const char* ipv4, const char* tcp_port)
 {
     unsigned short int port = atoi( tcp_port );
@@ -50,10 +49,39 @@ int tcpv4_bind(const char* ipv4, const char* tcp_port)
     return sockfd;
 }
 
-int udp_send(int sockfd, void* buf, int size);
-int udp_recv(int scokfd, void* buf, int size);
-int tcp_send(int sockfd, void* buf, int size);
-int tpc_recv(int sockfd, void* buf, int size);
+const char* get_peer_addr(int sockfd)
+{
+	struct sockaddr_storage addr;
+	socklen_t len = sizeof(addr);
+	static char s_addr[17];
+	getpeername(sockfd, (struct sockaddr*) &addr, &len);
+	
+	struct sockaddr_in* addr_in = (struct sockaddr_in*) &addr;
+	inet_ntop(AF_INET, (void*) &(addr_in->sin_addr),  s_addr, sizeof(s_addr));
+	return (const char*) s_addr;
+}
+
+const uint16_t get_peer_port(int sockfd)
+{
+	struct sockaddr_storage addr;
+	socklen_t len = sizeof(addr);
+	getpeername(sockfd, (struct sockaddr*) &addr, &len);
+	struct sockaddr_in* addr_in = (struct sockaddr_in*) &addr;
+	return ntohs(addr_in->sin_port);
+}
+
+int send_uint32(int sockfd, uint32_t data)
+{
+		data = htonl(data);
+		return send(sockfd, *data, sizeof(data), NULL);
+}
+
+int recv_uint32(int sockfd, uint32_t* data)
+{
+	int r = recv(sockfd, data, sizeof(uint32_t), 0x0);
+	*data = ntohl(*data);
+	return r;
+}
 
 inline off_t file_size(int fd)
 {
