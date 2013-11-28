@@ -69,7 +69,8 @@ int main ( int argc, char** argv )
 {
         signal ( SIGURG, signal_handler );
         signal ( SIGPIPE, signal_handler );
-
+	signal( SIGCHLD, signal_handler);
+	
         parse_options ( argc, argv );
 
         sockfd  = ( opt_via_tcp ) ?  tcpv4_bind ( opt_addr, opt_port ) : udpv4_bind ( opt_addr, opt_port ) ;
@@ -101,6 +102,9 @@ int main ( int argc, char** argv )
 int signal_handler ( int code )
 {
         uint8_t buf;
+	int status;
+	int pid;
+	
         switch ( code ) {
         case SIGPIPE:
                 fprintf ( stderr, "%d:Pipe broken. Check your network connection", getpid()  );
@@ -110,5 +114,10 @@ int signal_handler ( int code )
                 printf ( "Urgent data received\n" );
                 printf ( "%10.2lf KB received\n",  common_readed/1024.0 );
                 break;
+	case SIGCHLD:
+		pid = wait(&status);
+		printf("Chid process %d terminated with exit code %d\n", pid, status);
+		break;
+		
         }
 }

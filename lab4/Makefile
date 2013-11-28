@@ -7,7 +7,9 @@ SERVER_OBJS:= $(patsubst %.c, out/%.o, $(SERVER_SRC))
 CLIENT_OBJS:= $(patsubst %.c, out/%.o, $(CLIENT_SRC))
 ########################################################
 
-.PHONY: clean
+.PHONY: clean all
+
+all: client server
 
 server: $(SERVER_OBJS)	
 	$(CC) $(SERVER_OBJS) -o out/$@

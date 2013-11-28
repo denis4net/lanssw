@@ -13,7 +13,7 @@
 #include <signal.h>
 #include "common.h"
 
-int sockfd;
+int g_sockfd;
 static char opt_addr[17];
 static char opt_port[6];
 static int opt_via_tcp = 1;
@@ -24,9 +24,30 @@ int signal_handler ( int code )
 {
         if ( code == SIGUSR1 ) {
                 uint8_t d = 0x1;
-                int status = send ( sockfd, &d, sizeof ( d ), MSG_OOB );
+                int status = send ( g_sockfd, &d, sizeof ( d ), MSG_OOB );
                 printf ( "\nSIGUSR1 catched. Urgent data sended\n" );
         }
+}
+
+int tcpv4_connect ( const char* ipv4_addr, const char* tcp_port )
+{
+        unsigned short int port = atoi ( tcp_port );
+        in_addr_t ip = inet_addr ( ipv4_addr );
+
+        struct sockaddr_in sockaddr;
+        memset ( &sockaddr, 0x0, sizeof ( sockaddr ) );
+        sockaddr.sin_family = PF_INET;
+        sockaddr.sin_port = htons ( port );
+        sockaddr.sin_addr.s_addr = ip;
+
+        int sockfd = socket ( PF_INET, SOCK_STREAM, IPPROTO_TCP );
+        int opt=1;
+        setsockopt ( sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof ( opt ) );
+
+        if ( connect ( sockfd, ( struct sockaddr* ) &sockaddr, sizeof ( sockaddr ) ) )
+                return -1;
+	
+        return sockfd;
 }
 
 int tcp_worker ( int sockfd, int fd )
@@ -39,15 +60,15 @@ int tcp_worker ( int sockfd, int fd )
         }
         /* send file content*/
         {
-                int32_t status;
-                recv_uint32 ( sockfd, &status);
+                uint32_t status;
+                recv_uint32 ( sockfd, &status );
                 if ( status != 0 ) {
-                        fprintf ( stderr, "Error on server side: %s\n\n", strerror ( status ) );
+                        fprintf ( stderr, "Error on server side: %s (%u)\n\n", strerror ( status ), status );
                         return 4;
                 }
                 /*recv file offset and seek in file */
                 uint32_t offset;
-                recv_uint32 ( sockfd, &offset);
+                recv_uint32 ( sockfd, &offset );
                 printf ( "Seeking file to %u\n", offset );
                 lseek ( fd, ( off_t ) offset, SEEK_SET );
                 /*send data size for receiving */
@@ -62,7 +83,7 @@ int tcp_worker ( int sockfd, int fd )
                         printf ( "Sending %u bytes data size to server\n", send_size );
 
 
-                send_uint32 ( sockfd, send_size);
+                send_uint32 ( sockfd, send_size );
                 /* start reciving*/
                 size_t readed=0;
                 size_t sended=0;
@@ -84,7 +105,7 @@ int tcp_worker ( int sockfd, int fd )
                         perror ( "Can't read file" );
 
                 /* recv status status */
-                recv_uint32 ( sockfd, &status);
+                recv_uint32 ( sockfd, &status );
                 if ( status != 0 )
                         fprintf ( stderr, "Error on server side: %s\n\n", strerror ( status ) );
         }
@@ -99,13 +120,16 @@ int udp_worker ( int sockfd, int fd )
 
 void help()
 {
-        fprintf ( stderr, "use: client -a <listen_ip> -p <port> [-t] [-u]\n" );
+        fprintf ( stderr, "use: client -a <listen_ip> -p <port> -s <file_name> -d <file_name>  [-t] [-u]\n" );
 }
 
 void parse_options ( int argc, char** argv )
 {
         int opt;
-        while ( ( opt = getopt ( argc, argv, "a:p:uth" ) ) != -1 ) {
+        memset ( opt_dest_fname, 0x0, sizeof ( opt_dest_fname ) );
+        memset ( opt_local_fname, 0x0, sizeof ( opt_local_fname ) );
+
+        while ( ( opt = getopt ( argc, argv, "a:p:s:d:uth" ) ) != -1 ) {
                 switch ( opt ) {
                 case 'a':
                         strcpy ( opt_addr, optarg );
@@ -128,6 +152,14 @@ void parse_options ( int argc, char** argv )
                         exit ( EXIT_SUCCESS );
                         break;
 
+                case 's':
+                        strcpy ( opt_local_fname, optarg );
+                        break;
+
+                case 'd':
+                        strcpy ( opt_dest_fname, optarg );
+                        break;
+
                 case '?':
                         fprintf ( stderr, "Incorrect argument %c\n", optopt );
                         help();
@@ -146,21 +178,20 @@ int main ( int argc, char** argv )
         int fd = open ( opt_local_fname, O_RDONLY );
         assert ( fd != -1 );
 
-        sockfd = ( opt_via_tcp ) ? tcpv4_bind ( opt_addr, opt_port ) : udpv4_bind ( opt_addr, opt_port );
+        g_sockfd = ( opt_via_tcp ) ? tcpv4_connect ( opt_addr, opt_port ) : udpv4_bind ( opt_addr, opt_port );
+	if(g_sockfd < 0 ) {
+		perror("Can't create socktet");
+		exit(EXIT_FAILURE);
+	}
+	
         if ( opt_via_tcp ) {
-                int status = connect ( sokfd, NULL, NULL );
-                if ( status== -1 ) {
-                        perror ( "Can't connect to host" );
-                        return 3;
-                }
-
-                tcp_worker ( sockfd, fd );
+                 tcp_worker ( g_sockfd, fd );
         } else
-                udp_worker ( sockfd, fd );
+                udp_worker ( g_sockfd, fd );
 
         close ( fd );
-        shutdown ( sockfd, SHUT_RDWR );
-        close ( sockfd );
+        shutdown ( g_sockfd, SHUT_RDWR );
+        close ( g_sockfd );
         return 0;
 }
 

@@ -51,13 +51,11 @@ int tcpv4_bind(const char* ipv4, const char* tcp_port)
 
 const char* get_peer_addr(int sockfd)
 {
-	struct sockaddr_storage addr;
+	struct sockaddr_in addr;
 	socklen_t len = sizeof(addr);
 	static char s_addr[17];
 	getpeername(sockfd, (struct sockaddr*) &addr, &len);
-	
-	struct sockaddr_in* addr_in = (struct sockaddr_in*) &addr;
-	inet_ntop(AF_INET, (void*) &(addr_in->sin_addr),  s_addr, sizeof(s_addr));
+	inet_ntop(AF_INET, (void*) &(addr.sin_addr),  s_addr, sizeof(s_addr));
 	return (const char*) s_addr;
 }
 
@@ -73,7 +71,7 @@ const uint16_t get_peer_port(int sockfd)
 int send_uint32(int sockfd, uint32_t data)
 {
 		data = htonl(data);
-		return send(sockfd, *data, sizeof(data), NULL);
+		return send(sockfd, &data, sizeof(data), NULL);
 }
 
 int recv_uint32(int sockfd, uint32_t* data)

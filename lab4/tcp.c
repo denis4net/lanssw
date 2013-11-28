@@ -13,12 +13,16 @@ extern int common_readed;
 
 int tcp_session ( int client_sockfd )
 {
+
+        printf ( "%d Incomming connection from %s:%hu via TCP\n", getpid(),
+                 get_peer_addr ( client_sockfd ), get_peer_port ( client_sockfd ) );
+
         fcntl ( client_sockfd, F_SETOWN, getpid() );
 
-	uint8_t buffer[BUFSIZE];
+        uint8_t buffer[BUFSIZE];
         uint32_t flen, status;
 
-        status  = recv_uint32( client_sockfd, &flen);
+        status  = recv_uint32 ( client_sockfd, &flen );
         if ( status == -1 ) {
                 perror ( "Can't receive file name size" );
                 return -1;
@@ -33,27 +37,34 @@ int tcp_session ( int client_sockfd )
         }
 
         int fd = open ( fname, O_WRONLY| O_APPEND | O_CREAT, 0755 );
-        send_uint32 ( client_sockfd, errno ); //send file open status
+        if ( fd < 0 ) {
+                send_uint32 ( client_sockfd, errno ); //send file open status
+                fprintf ( "%d can't open file %s, errno=%u\n", fname, errno );
+                close ( client_sockfd );
+                return -errno;
+
+        } else
+                send_uint32 ( client_sockfd, 0 );
 
         //send file offset
         {
                 send_uint32 ( client_sockfd, file_size ( fd ) );
-                printf ( "File name: %s, file size %u bytes\n", fname, file_size ( fd ) );
+                printf ( "%d File name: %s, file size %u bytes\n", getpid(), fname, file_size ( fd ) );
         }
 
         //receiving data size
         uint32_t data_size, display_status;
-        recv_uint32 ( client_sockfd, &data_size);
-	
+        recv_uint32 ( client_sockfd, &data_size );
+
         while ( common_readed != data_size ) {
                 status = recv ( client_sockfd, buffer, sizeof ( buffer ), 0x0 );
                 common_readed +=  status;
 
                 if ( status == -1 ||  status == 0 )  {
-                        perror ( "\nClient disconected" );
+                        perror ( "Client disconected" );
                         break;
                 } else if ( write ( fd, buffer,  status ) == -1 )  {
-                        perror ( "\nCan't write to file" );
+                        perror ( "Can't write to file" );
                         break;
                 }
         }
@@ -61,29 +72,30 @@ int tcp_session ( int client_sockfd )
         if ( common_readed == data_size ) {
                 status=0;
                 send ( client_sockfd, &status, sizeof ( status ), 0x0 );
-		//printf( "\nAll data received\n" );
+                //printf( "\nAll data received\n" );
         } else {
-                fprintf ( stderr, "\nNot all data received from client\n" );
+                fprintf ( stderr, "%d Not all data received from client\n", getpid() );
         }
-	 printf ( "\nClosing connection with %s:%hu\n", 
-		  get_peer_addr(client_sockfd), get_peer_port(client_sockfd) );
-	 
+        printf ( "%d Closing connection with %s:%hu\n",
+                 getpid(),
+                 get_peer_addr ( client_sockfd ), get_peer_port ( client_sockfd ) );
+
         close ( fd );
         close ( client_sockfd );
 }
 
 int tcp_loop ( int sockfd )
 {
-	int client_sockfd;
+        int client_sockfd;
         int client_count=0;
-	char buffer[BUFSIZE];
+        char buffer[BUFSIZE];
         struct sockaddr_in client_addr;
-    
+
         int size = sizeof ( client_addr );
 
         while ( ( client_sockfd = accept ( sockfd, &client_addr, &size ) ) != -1 ) {
-		printf("Incomming connection from %s:%hu via TCP\n", get_peer_addr(sockfd), get_peer_port(sockfd));
-		
+
+
                 pid_t pid = fork();
                 switch ( pid ) {
                 case -1:
@@ -91,11 +103,11 @@ int tcp_loop ( int sockfd )
                         break;
                 case 0:
                         close ( sockfd );
-                        tcp_session(client_sockfd);
+                        tcp_session ( client_sockfd );
                         exit ( EXIT_SUCCESS );
                         break;
                 default:
-			close(client_sockfd);
+                        close ( client_sockfd );
                         client_count++;
                         break;
                 }
