@@ -11,18 +11,18 @@
 
 extern int common_readed;
 
-int tcp_session ( int client_sockfd )
+int tcp_session_handler ( int client_sockfd )
 {
 
-        printf ( "%d Incomming connection from %s:%hu via TCP\n", getpid(),
-                 get_peer_addr ( client_sockfd ), get_peer_port ( client_sockfd ) );
+        debug ( "%d Incomming connection from %s:%hu via TCP\n", getpid(),
+                 extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) );
 
         fcntl ( client_sockfd, F_SETOWN, getpid() );
 
         uint8_t buffer[BUFSIZE];
         uint32_t flen, status;
 
-        status  = recv_uint32 ( client_sockfd, &flen );
+        status  = tcp_recv_uint32 ( client_sockfd, &flen );
         if ( status == -1 ) {
                 perror ( "Can't receive file name size" );
                 return -1;
@@ -38,23 +38,23 @@ int tcp_session ( int client_sockfd )
 
         int fd = open ( fname, O_WRONLY| O_APPEND | O_CREAT, 0755 );
         if ( fd < 0 ) {
-                send_uint32 ( client_sockfd, errno ); //send file open status
-                fprintf ( "%d can't open file %s, errno=%u\n", fname, errno );
+                tcp_send_uint32 ( client_sockfd, errno ); //send file open status
+                error ( "%d can't open file %s, errno=%u\n", fname, errno );
                 close ( client_sockfd );
                 return -errno;
 
         } else
-                send_uint32 ( client_sockfd, 0 );
+                tcp_send_uint32 ( client_sockfd, 0 );
 
         //send file offset
         {
-                send_uint32 ( client_sockfd, file_size ( fd ) );
-                printf ( "%d File name: %s, file size %u bytes\n", getpid(), fname, file_size ( fd ) );
+                tcp_send_uint32 ( client_sockfd, file_size ( fd ) );
+                debug ( "%d File name: %s, file size %u bytes\n", getpid(), fname, file_size ( fd ) );
         }
 
         //receiving data size
         uint32_t data_size, display_status;
-        recv_uint32 ( client_sockfd, &data_size );
+        tcp_recv_uint32 ( client_sockfd, &data_size );
 
         while ( common_readed != data_size ) {
                 status = recv ( client_sockfd, buffer, sizeof ( buffer ), 0x0 );
@@ -72,13 +72,13 @@ int tcp_session ( int client_sockfd )
         if ( common_readed == data_size ) {
                 status=0;
                 send ( client_sockfd, &status, sizeof ( status ), 0x0 );
-                //printf( "\nAll data received\n" );
+                //debug( "\nAll data received\n" );
         } else {
-                fprintf ( stderr, "%d Not all data received from client\n", getpid() );
+                error ( stderr, "%d Not all data received from client\n", getpid() );
         }
-        printf ( "%d Closing connection with %s:%hu\n",
+        debug ( "%d Closing connection with %s:%hu\n",
                  getpid(),
-                 get_peer_addr ( client_sockfd ), get_peer_port ( client_sockfd ) );
+                 extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) );
 
         close ( fd );
         close ( client_sockfd );
@@ -103,7 +103,7 @@ int tcp_loop ( int sockfd )
                         break;
                 case 0:
                         close ( sockfd );
-                        tcp_session ( client_sockfd );
+                        tcp_session_handler ( client_sockfd );
                         exit ( EXIT_SUCCESS );
                         break;
                 default:
