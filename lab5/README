@@ -1,0 +1,8 @@
+Protocol description:
+	1. Client connect to server;
+	2. Client send file name size (32bit) and file name byte array in host endian;
+	3. Server recv file name size (32bit) and file name byte array in host endian; [Because I send 8bit chars, I don't care about endianes]
+	4. Server check file name exist in file system and send file offset (32bit) if file exist in his share folder;
+	5. Client recv offset and send to server data size that will be sended to server (32bit);
+	6. Client send data to server.
+
