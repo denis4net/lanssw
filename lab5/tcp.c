@@ -20,15 +20,16 @@ struct client_info {
         char name[256];
 };
 
-int tcp_close_client_connection(struct pollfd* pollfd, struct client_info* client_info) {
-	close(pollfd->fd);
-	pollfd->fd = -1;
-	pollfd->events = 0;
-	
-	close(client_info->fd);
-	memset(client_info, 0x0, sizeof(*client_info));
-	
-	return 0;
+int tcp_close_client_connection ( struct pollfd* pollfd, struct client_info* client_info )
+{
+        close ( pollfd->fd );
+        pollfd->fd = -1;
+        pollfd->events = 0;
+
+        close ( client_info->fd );
+        memset ( client_info, 0x0, sizeof ( *client_info ) );
+
+        return 0;
 }
 
 int tcp_loop ( int sockfd )
@@ -64,7 +65,7 @@ int tcp_loop ( int sockfd )
                                         socket_fds[j].fd = client_sockfd;
                                         debug ( "Incoming connection from %s:%hu\n", extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) );
                                         memset ( &client_entries[j], 0x0, sizeof client_entries[0] );
-					break;
+                                        break;
                                 }
                         }
                 }
@@ -81,12 +82,14 @@ int tcp_loop ( int sockfd )
                                         status  = tcp_recv_uint32 ( client_sockfd, &flen );
                                         if ( status == -1 ) {
                                                 perror ( "Can't receive file name size" );
+						tcp_close_client_connection ( socket_fds+i, client_entries+i );
                                                 continue;
                                         }
 
                                         status = recv ( client_sockfd,  client_entries[i].name, flen, MSG_WAITALL );
                                         if ( status==-1 ) {
                                                 perror ( "Can't receive file name" );
+						tcp_close_client_connection ( socket_fds+i, client_entries+i );
                                                 continue;
                                         }
 
@@ -94,8 +97,8 @@ int tcp_loop ( int sockfd )
                                         if ( client_entries[i].fd < 0 ) {
                                                 tcp_send_uint32 ( client_sockfd, errno ); //send file open status
                                                 error ( "%d can't open file %s, errno=%u\n", client_entries[i].name, errno );
-                                                close ( client_sockfd );
-                                                return -errno;
+                                                tcp_close_client_connection ( socket_fds+i, client_entries+i );
+                                                continue;
                                         } else
                                                 tcp_send_uint32 ( client_sockfd, 0 );
 
@@ -106,6 +109,11 @@ int tcp_loop ( int sockfd )
                                 //receive data size to receive
                                 else if ( client_entries[i].bytes_must_recv == 0 ) {
                                         tcp_recv_uint32 ( client_sockfd, & ( client_entries[i].bytes_must_recv ) );
+                                        if ( client_entries[i].bytes_must_recv==0 ) {
+                                                debug ( "Connection with %s:%hu closed\n", extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) ) ;
+                                                tcp_close_client_connection ( socket_fds+i, client_entries+i );
+                                                continue;
+                                        }
                                 }
                                 //receive data and write to file
                                 else {
@@ -113,13 +121,13 @@ int tcp_loop ( int sockfd )
                                                 status = recv ( client_sockfd, buffer, sizeof ( buffer ), 0x0 );
                                                 client_entries[i].bytes_received +=  status;
 
-                                                if ( status == -1 ||  status == 0 )  {
-                                                        debug("Connection with %s:%hu closed\n", extract_peer_addr(client_sockfd), extract_peer_port(client_sockfd) );
-							tcp_close_client_connection(socket_fds+i, client_entries+i);
-							continue;
+                                                if ( status == -1  )  {
+                                                        debug ( "Connection with %s:%hu closed\n", extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) );
+                                                        tcp_close_client_connection ( socket_fds+i, client_entries+i );
+                                                        continue;
                                                 } else if ( write ( client_entries[i].fd, buffer,  status ) == -1 )  {
-                                                        debug("Can't write to file %s: %s\n", client_entries[i].name, strerror(errno));
-							tcp_close_client_connection(socket_fds+i, client_entries+i);
+                                                        debug ( "Can't write to file %s: %s\n", client_entries[i].name, strerror ( errno ) );
+                                                        tcp_close_client_connection ( socket_fds+i, client_entries+i );
                                                         continue;
                                                 }
                                         }
@@ -127,8 +135,10 @@ int tcp_loop ( int sockfd )
                                         //close connection
                                         if ( client_entries[i].bytes_must_recv == client_entries[i].bytes_received ) {
                                                 tcp_send_uint32 ( client_sockfd, errno );
-						tcp_close_client_connection(socket_fds+i, client_entries+i);
-                                        }
+                                                debug ( "Connection with %s:%hu closed\n", extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) ) ;
+                                                tcp_close_client_connection ( socket_fds+i, client_entries+i );
+						continue;
+					}
                                 }
                         }
                 }
