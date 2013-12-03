@@ -15,6 +15,8 @@
 #include <sys/time.h>
 #include <getopt.h>
 
+#define CYCLES_TO_DISPLAY 2048
+
 int g_sockfd;
 static char opt_addr[17];
 static char opt_port[6];
@@ -151,17 +153,20 @@ int tcp_worker ( int sockfd, int fd )
                                 break;
                         } else {
                                 sended+=status;
-                                if ( ! ( sended % 1024 ) )
-                                       printf ( "\033[0G%3.2lf sended", ( double ) ( ( sended+offset ) *100.0 ) /fsize );
+                                if ( ! ( sended % CYCLES_TO_DISPLAY) )
+                                       printf ( "\033[0G%3.1lf sended", ( double ) ( ( sended+offset ) *100.0 ) /fsize );
                         }
                 }
 
                 if ( readed == -1 )
                         perror ( "Can't read file" );
 
+		printf("\n");
+		
                 /* recv status status */
                 tcp_recv_uint32 ( sockfd, &status );
-                debug("Writing to file on server side status: %s\n\n", strerror ( status ) );
+                
+		debug("Writing to file on server side status: %s\n\n", strerror ( status ) );
         }
         return 0;
 }
@@ -227,7 +232,7 @@ int udp_worker ( int sockfd, int fd )
                 uint32_t send_size = fsize-offset;
 
                 if ( offset == fsize )
-                        debug ( "File exist on server" );
+                        debug ( "File exist on server\n" );
                 else if ( offset !=0 )
                         debug ( "Redownloading. Sending %u bytes data size to server\n", send_size );
                 else if ( send_size != 0 )
@@ -247,7 +252,7 @@ int udp_worker ( int sockfd, int fd )
                                 break;
                         } else {
                                 sended+=status;
-                                if ( ! ( sended % 1024 ) )
+                                if ( ! ( sended % CYCLES_TO_DISPLAY ) )
                                         printf ( "\033[0G%3.2lf  sended", ( double ) ( ( sended+offset ) *100.0 ) /fsize );
                         }
                 }
@@ -255,6 +260,7 @@ int udp_worker ( int sockfd, int fd )
                 if ( readed == -1 )
                         perror ( "Can't read file" );
 
+		printf("\n");
                 /* recv status status */
                 udp_recv_uint32 ( sockfd, &status,  &server_addr );
                 debug("Writing to file on server side status: %s\n\n", strerror ( status ) );
@@ -319,8 +325,9 @@ void parse_options ( int argc, char** argv )
                 error ( stderr, "Destination file name empty" );
                 exit ( EXIT_FAILURE );
         }
+
         if ( strlen ( opt_local_fname ) < 1 ) {
-                error ( stderr, "Destination file name empty" );
+                error ( stderr, "Local file name empty" );
                 exit ( EXIT_FAILURE );
         }
 }
