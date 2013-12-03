@@ -82,14 +82,14 @@ int tcp_loop ( int sockfd )
                                         status  = tcp_recv_uint32 ( client_sockfd, &flen );
                                         if ( status == -1 ) {
                                                 perror ( "Can't receive file name size" );
-						tcp_close_client_connection ( socket_fds+i, client_entries+i );
+                                                tcp_close_client_connection ( socket_fds+i, client_entries+i );
                                                 continue;
                                         }
 
                                         status = recv ( client_sockfd,  client_entries[i].name, flen, MSG_WAITALL );
                                         if ( status==-1 ) {
                                                 perror ( "Can't receive file name" );
-						tcp_close_client_connection ( socket_fds+i, client_entries+i );
+                                                tcp_close_client_connection ( socket_fds+i, client_entries+i );
                                                 continue;
                                         }
 
@@ -110,6 +110,8 @@ int tcp_loop ( int sockfd )
                                 else if ( client_entries[i].bytes_must_recv == 0 ) {
                                         tcp_recv_uint32 ( client_sockfd, & ( client_entries[i].bytes_must_recv ) );
                                         if ( client_entries[i].bytes_must_recv==0 ) {
+                                                tcp_send_uint32 ( client_sockfd, errno );
+
                                                 debug ( "Connection with %s:%hu closed\n", extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) ) ;
                                                 tcp_close_client_connection ( socket_fds+i, client_entries+i );
                                                 continue;
@@ -121,7 +123,7 @@ int tcp_loop ( int sockfd )
                                                 status = recv ( client_sockfd, buffer, sizeof ( buffer ), 0x0 );
                                                 client_entries[i].bytes_received +=  status;
 
-                                                if ( status == -1  )  {
+                                                if ( status == -1 )  {
                                                         debug ( "Connection with %s:%hu closed\n", extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) );
                                                         tcp_close_client_connection ( socket_fds+i, client_entries+i );
                                                         continue;
@@ -137,8 +139,8 @@ int tcp_loop ( int sockfd )
                                                 tcp_send_uint32 ( client_sockfd, errno );
                                                 debug ( "Connection with %s:%hu closed\n", extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) ) ;
                                                 tcp_close_client_connection ( socket_fds+i, client_entries+i );
-						continue;
-					}
+                                                continue;
+                                        }
                                 }
                         }
                 }

@@ -176,7 +176,10 @@ int udp_loop ( int sockfd )
                                         udp_recv_uint32 ( client_sockfd, & ( client_entries[i].bytes_must_recv ),  & ( client_entries[i].sockaddr ) );
 
                                         if ( client_entries[i].bytes_must_recv == 0 ) {
-                                                debug ( "Connection with %s:%hu closed\n", inet_ntoa ( d_sockaddr.sin_addr ) , ntohs ( d_sockaddr.sin_port ) );
+                                                
+						udp_send_uint32 ( client_sockfd, errno,  & ( client_entries[i].sockaddr ) );
+						
+						debug ( "Connection with %s:%hu closed\n", inet_ntoa ( d_sockaddr.sin_addr ) , ntohs ( d_sockaddr.sin_port ) );
                                                 udp_close_client_connection ( socket_fds+i, client_entries+i );
 						continue;
                                         }
