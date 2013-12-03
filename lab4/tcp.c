@@ -70,16 +70,17 @@ int tcp_session_handler ( int client_sockfd )
         }
 
         if ( common_readed == data_size ) {
-                status=0;
-                send ( client_sockfd, &status, sizeof ( status ), 0x0 );
-                //debug( "\nAll data received\n" );
+                debug("All data received\n");
         } else {
                 error ( stderr, "%d Not all data received from client\n", getpid() );
         }
+        
         debug ( "%d Closing connection with %s:%hu\n",
                  getpid(),
                  extract_peer_addr ( client_sockfd ), extract_peer_port ( client_sockfd ) );
 
+	tcp_send_uint32 ( client_sockfd, errno);
+	
         close ( fd );
         close ( client_sockfd );
 }

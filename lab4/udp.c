@@ -111,14 +111,15 @@ int udp_client_handler ( int client_sockfd, struct sockaddr_in d_sockaddr )
         }
 
         if ( common_readed == data_size ) {
-                status=0;
-                send ( client_sockfd, &status, sizeof ( status ), 0x0 );
-                //debug( "\nAll data received\n" );
+                debug("All data received");
         } else {
                 error ( stderr, "Not all data received from client via UDP endpoint\n" );
         }
+
+	udp_send_uint32 ( client_sockfd, errno, &d_sockaddr);
+	
         debug ( "Closing  UDP endpoint with %s:%hu\n",
-                 extract_peer_addr ( client_sockfd ),  extract_peer_port ( client_sockfd ) );
+                 inet_ntoa ( d_sockaddr.sin_addr ), ntohl ( d_sockaddr.sin_port ) );
 
         close ( fd );
         close ( client_sockfd );
