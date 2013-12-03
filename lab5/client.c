@@ -123,10 +123,6 @@ int tcp_worker ( int sockfd, int fd )
                 uint32_t offset;
                 tcp_recv_uint32 ( sockfd, &offset );
 
-                if ( offset == file_size ( fd ) ) {
-                        debug ( "File already uploaded\n" );
-                        exit ( EXIT_SUCCESS );
-                }
                 debug ( "Seeking file to %ukB, file size %ukB\n", offset/1024, file_size ( fd ) /1024 );
                 lseek ( fd, ( off_t ) offset, SEEK_SET );
                 /*send data size for receiving */
@@ -134,12 +130,11 @@ int tcp_worker ( int sockfd, int fd )
                 uint32_t send_size = fsize-offset;
 
                 if ( offset == fsize )
-                        debug ( "File exist on server" );
+                        debug ( "File already uploaded" );
                 else if ( offset !=0 )
                         debug ( "Redownloading. Sending %u bytes data size to server\n", send_size );
                 else if ( send_size != 0 )
                         debug ( "Sending %u bytes data size to server\n", send_size );
-
 
                 tcp_send_uint32 ( sockfd, send_size );
                 /* start reciving*/
@@ -153,20 +148,23 @@ int tcp_worker ( int sockfd, int fd )
                                 break;
                         } else {
                                 sended+=status;
-                                if ( ! ( sended % CYCLES_TO_DISPLAY) )
-                                       printf ( "\033[0G%3.1lf sended", ( double ) ( ( sended+offset ) *100.0 ) /fsize );
+                                if ( ! ( sended % CYCLES_TO_DISPLAY ) )
+                                        printf ( "\033[0G%3.1lf sended", ( double ) ( ( sended+offset ) *100.0 ) /fsize );
                         }
                 }
 
                 if ( readed == -1 )
                         perror ( "Can't read file" );
 
-		printf("\n");
-		
+                printf ( "\n" );
+
                 /* recv status status */
                 tcp_recv_uint32 ( sockfd, &status );
-                
-		debug("Writing to file on server side status: %s\n\n", strerror ( status ) );
+
+                debug ( "Server side operation status: %s\n\n", strerror ( status ) );
+
+
+
         }
         return 0;
 }
@@ -222,22 +220,17 @@ int udp_worker ( int sockfd, int fd )
                 if ( udp_recv_uint32 ( sockfd, &offset,  &server_addr ) < 0 )
                         perror ( "Can't recv file offset" );
 
-                if ( offset == file_size ( fd ) ) {
-                        debug ( "File already uploaded\n" );
-                        exit ( EXIT_SUCCESS );
-                }
                 lseek ( fd, ( off_t ) offset, SEEK_SET );
                 /*send data size for receiving */
                 off_t fsize = file_size ( fd );
                 uint32_t send_size = fsize-offset;
 
                 if ( offset == fsize )
-                        debug ( "File exist on server\n" );
+                        debug ( "File already uploaded" );
                 else if ( offset !=0 )
                         debug ( "Redownloading. Sending %u bytes data size to server\n", send_size );
                 else if ( send_size != 0 )
                         debug ( "Sending %u bytes data size to server\n", send_size );
-
 
                 udp_send_uint32 ( sockfd, send_size,  &server_addr );
                 /* start reciving*/
@@ -260,10 +253,10 @@ int udp_worker ( int sockfd, int fd )
                 if ( readed == -1 )
                         perror ( "Can't read file" );
 
-		printf("\n");
+                printf ( "\n" );
                 /* recv status status */
                 udp_recv_uint32 ( sockfd, &status,  &server_addr );
-                debug("Writing to file on server side status: %s\n\n", strerror ( status ) );
+                debug ( "Server side operation status: %s\n\n", strerror ( status ) );
         }
 
         return 0;
