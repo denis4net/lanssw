@@ -6,7 +6,7 @@ fi
 SOURCE_FILE="/home/denis/tmp/test2.bin"
 
 for((i=0;i<5;i++)); do
-	out/client -a 127.0.0.1 -p 1234  -s "$SOURCE_FILE" -d /home/denis/tmp/test-${i}.bin $@ > /dev/null &
+	out/client -a 192.168.11.142 -p 1234  -s /home/denis/tmp/test2.bin -d test-.bin $@ > /dev/null &
 done
 
 echo "Waiting for all clients..."

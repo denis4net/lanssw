@@ -85,8 +85,12 @@ int tcp_session_handler ( int client_sockfd )
         close ( client_sockfd );
 }
 
-int tcp_loop ( int sockfd )
+int tcp_loop (const char* opt_addr, const char* opt_port)
 {
+	int sockfd =  tcpv4_bind ( opt_addr, opt_port );
+	if( listen ( sockfd, 1 ) <  0)
+		perror("listen");
+	
         int client_sockfd;
         int client_count=0;
         char buffer[BUFSIZE];

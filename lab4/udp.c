@@ -125,8 +125,9 @@ int udp_client_handler ( int client_sockfd, struct sockaddr_in d_sockaddr )
         close ( client_sockfd );
 }
 
-int udp_loop ( int sockfd )
-{
+int udp_loop ( const char* opt_addr, const char* port )
+{	
+	int sockfd =  udpv4_bind ( opt_addr, port );
         int status;
         uint16_t recv_data;
         struct sockaddr_in d_sockaddr;

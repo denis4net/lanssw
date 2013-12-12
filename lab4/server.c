@@ -14,14 +14,14 @@
 #include "common.h"
 
 int signal_handler ( int code );
-extern int tcp_loop ( int sockfd );
-extern int udp_loop ( int sockfd );
+extern int tcp_loop ( const char*, const char* );
+extern int udp_loop (const char*, const char* );
 
 int common_readed=0;
 static int sockfd;
 /* parse options */
-static char opt_addr[17];
-static char opt_port[6];
+char opt_addr[17];
+char opt_port[6];
 static int opt_via_tcp = 1;
 
 
@@ -73,29 +73,19 @@ int main ( int argc, char** argv )
 
         parse_options ( argc, argv );
 
-        sockfd  = ( opt_via_tcp ) ?  tcpv4_bind ( opt_addr, opt_port ) : udpv4_bind ( opt_addr, opt_port ) ;
-
-
         if ( sockfd == -1 )  {
                 perror ( "Can't init socket" );
                 return 2;
         }
 
-        debug ( "Start listening at %s %s:%s\n",
-                 ( opt_via_tcp ) ?"tcp":"udp",
-                 opt_addr, opt_port );
-        int status;
-        if ( opt_via_tcp ) {
-                if ( listen ( sockfd, 1 ) ) {
-                        perror ( "can't start listening" );
-                        exit ( EXIT_FAILURE );
-                }
-                status = tcp_loop ( sockfd );
-        } else {
-                status = udp_loop ( sockfd );
-        }
-
-        return status;
+        pid_t pid = fork();
+	if(pid==0)
+		tcp_loop (opt_addr, opt_port );
+	
+        udp_loop (opt_addr, opt_port );
+	int status;
+	wait(&status);
+        return 0;
 }
 
 int signal_handler ( int code )
@@ -118,6 +108,6 @@ int signal_handler ( int code )
                 debug ( "Chid process %d terminated with exit code %d\n", pid, status );
                 break;
         }
-        
+
         return 0;
 }

@@ -46,6 +46,7 @@ int udpv4_bind ( const char* ipv4, const char* tcp_port )
 
 int tcpv4_bind ( const char* ipv4, const char* tcp_port )
 {
+	debug("addr=%s, port=%s\n", ipv4, tcp_port);
         unsigned short int port = atoi ( tcp_port );
         in_addr_t ip = inet_addr ( ipv4 );
 
