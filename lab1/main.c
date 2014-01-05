@@ -1,13 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <signal.h>
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-
-
-#include <signal.h>
+#include <netinet/tcp.h>
 
 int signal_handler(int code);
 
@@ -17,13 +15,14 @@ int main(int argc, char** argv)
   
       if( argc != 3 )
       {
-	fprintf(stderr, "use: lab1 <ip> <port>\n");
+	fprintf(stderr, "use: %s <ip> <port> <tcp_mss_size>\n", argv[0]);
 	return 10;
       }
             
-      unsigned short int port = atoi( argv[2] );
-      in_addr_t ip = inet_addr( argv[1] );
-      
+      const unsigned short int port = atoi( argv[2] );
+      const in_addr_t ip = inet_addr( argv[1] );
+      const unsigned int mss = argv[3];
+
       struct sockaddr_in sockaddr;
       struct sockaddr_in client_addr;
       
@@ -52,6 +51,11 @@ int main(int argc, char** argv)
       char buffer[256];
       int size = sizeof(client_addr);
       
+      if( mss > 0 && setsockopt( sockfd, IPPROTO_TCP, TCP_MAXSEG, &mss, sizeof mss ) != 0 ) {
+            fprintf(stderr, "Can't set TCP MSS\n");
+            exit(1);
+      }
+
       while( ( clientfd = accept( sockfd, &client_addr, &size ) ) != -1 )
       {
 	printf("Connection opened with %s\n", inet_ntoa(client_addr.sin_addr));
@@ -59,7 +63,8 @@ int main(int argc, char** argv)
 	{
 	  int count = recv( clientfd, buffer, sizeof(buffer), 0x0);
 	  printf("\tReceived %d bytes\n", count);
-	  if( count == -1 || count == 0 )
+	  
+        if( count == -1 || count == 0 )
 	    break;
 
 	  int code = send( clientfd, buffer, count, 0x0);
@@ -76,5 +81,5 @@ int main(int argc, char** argv)
 
 int signal_handler(int code)
 {
- fprintf(stderr, "pipe closed"); 
+      fprintf(stderr, "pipe closed"); 
 }
