@@ -75,7 +75,11 @@ def receive_icmp_packet(my_socket, packet_id):
             # print("time sent %f, time received %f" % (time_sent, time_received))
             # print(''.join( ('%x '% byte) for byte in icmp_packet))
             if p_id == packet_id and type == 0 and code == 0:
-                return addr, time_received - time_sent, sequence
+                print("icmp_response from %s, icmp_sequence=%d, time=%fs" % (str(addr[0]), sequence, time_received - time_sent))
+                return
+            elif p_id == packet_id and type != 8: #echo request
+                print("icmp_response type=%d, code=%d, icmp_sequence=%d" % (type, code, sequence))
+                return
 
 def pinger():
     global options
@@ -115,8 +119,7 @@ def main():
         print("PING %s, interval %d, packed identifier %d" % (options.destination, options.i, options.packet_id))
         signal.setitimer(signal.ITIMER_REAL, options.i, options.i)
         while True:
-            addr, delay, sequence_number = receive_icmp_packet(sockfd, options.packet_id)
-            print("icmp_response from %s, icmp_sequence=%d, time=%fs" % (str(addr[0]), sequence_number, delay))
+           receive_icmp_packet(sockfd, options.packet_id)
 
     except socket.error as e:
         sys.stderr.write("Exception: " +e.strerror + '\n')
