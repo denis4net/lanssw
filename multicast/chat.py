@@ -15,7 +15,7 @@ HELP_MESSAGE = """
 PORT = 5455
 PACKET_SIZE = 1024
 
-DEBUG = True
+DEBUG = False
 
 PUBLIC_ROOM_IP = "224.10.10.10"
 PRIVATE_ROOM_IPS = [
@@ -32,7 +32,7 @@ class ChatThread(threading.Thread):
         self._chat = chat
         self._terminated = False
     def run(self):
-        while self._terminated:
+        while not self._terminated:
             self._chat.process()
     def shutdown(self):
         self._terminated = True
@@ -167,7 +167,7 @@ class MulticastChat(object):
                 elif "command" in data:
                     self.parse_command(addr, data['command'], data)
             except ValueError as e:
-                print("invalid packet received")
+                print("invalid packet received: ", e.strerror)
 
     def send_nick(self, address):
         data = {
@@ -177,7 +177,7 @@ class MulticastChat(object):
         enc_data = json.dumps(data)
         self._sockfd.sendto(enc_data, address)
 
-    def send_room(self, message, room_number = 0):
+    def send_room(self, message, room_number=0):
         data = {
             "nick": self._nick,
             "message": message,
@@ -234,8 +234,6 @@ def main():
         return False
 
     host_addr = iface_info[2][0]["addr"]
-    netmask = iface_info[2][0]["netmask"]
-    broadcast = iface_info[2][0]["broadcast"]
 
     print("******Interface params******")
     print("host_addr ", host_addr)
