@@ -13,15 +13,15 @@ int main(int argc, char** argv)
 {
       signal(SIGPIPE, signal_handler);
   
-      if( argc != 3 )
+      if( argc != 4 )
       {
 	fprintf(stderr, "use: %s <ip> <port> <tcp_mss_size>\n", argv[0]);
 	return 10;
       }
             
-      const unsigned short int port = atoi( argv[2] );
       const in_addr_t ip = inet_addr( argv[1] );
-      const unsigned int mss = argv[3];
+      const unsigned short int port = atoi( argv[2] );
+      const unsigned int mss = atoi( argv[3] );
 
       struct sockaddr_in sockaddr;
       struct sockaddr_in client_addr;
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
       char buffer[256];
       int size = sizeof(client_addr);
       
-      if( mss > 0 && setsockopt( sockfd, IPPROTO_TCP, TCP_MAXSEG, &mss, sizeof mss ) != 0 ) {
+      if( setsockopt( sockfd, IPPROTO_TCP, TCP_MAXSEG, &mss, sizeof mss ) != 0 ) {
             fprintf(stderr, "Can't set TCP MSS\n");
             exit(1);
       }

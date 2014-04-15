@@ -69,11 +69,18 @@ void main_peer_communication() {
         }
 
     } else {
-        MPI_Request r;
+        MPI_Request *requests = calloc(workers_count, sizeof(MPI_Request));
+        MPI_Status *statuses = calloc(workers_count, sizeof(MPI_Status));
+
         for (int i = 0; i < workers_count; i++) {
             int current_worker_block_size = peer_rows_count(i);
-            MPI_Isend(&current_worker_block_size, 1, MPI_INT, i + 1, TAG_BLOCK_SIZE, MPI_COMM_WORLD, &r);
+            MPI_Isend(&current_worker_block_size, 1, MPI_INT, i + 1, TAG_BLOCK_SIZE, MPI_COMM_WORLD, &requests[i]);
         }
+
+        debug("Wait all peers (%i) received computing block size\n", workers_count);
+        MPI_Waitall(workers_count, requests, statuses);
+        free(requests);
+        free(statuses);
     }
 
     //send rows of matrix A to peers
@@ -88,17 +95,25 @@ void main_peer_communication() {
             real_workers_count++;
         }
     } else {
+        MPI_Request *requests = calloc(workers_count, sizeof(MPI_Request));
+        MPI_Status *statuses = calloc(workers_count, sizeof(MPI_Status));
+
         for (int i = 0; i < workers_count && peer_rows_count(i); i++) {
             int current_worker_block_size = peer_rows_count(i);
-            MPI_Request r;
+
             MPI_Isend(A.a + (A.width * i *  peer_rows_count(i-1)), current_worker_block_size * A.width, MPI_DOUBLE, i + 1,
-                      TAG_MATRIX_FIRST, MPI_COMM_WORLD, &r);
+                      TAG_MATRIX_FIRST, MPI_COMM_WORLD, &requests[i]);
             real_workers_count++;
         }
+
+        debug("Waiting while all (%i) peer received matrix A\n", real_workers_count);
+        MPI_Waitall(real_workers_count, requests, statuses);
+        free(requests);
+        free(statuses);
     }
 
     //receive rows result matrix C
-    debug("Trying to compose result matrix. Waiting data from peers.\n");
+    //debug("Trying to compose result matrix. Waiting data from peers.\n");
     if (async == 0) {
         for (int i = 0; i < real_workers_count; i++) {
             int current_worker_block_size = peer_rows_count(i);
@@ -114,9 +129,11 @@ void main_peer_communication() {
             MPI_Irecv(C.a +(C.width * i * current_worker_block_size), current_worker_block_size * C.width,
                       MPI_DOUBLE, i + 1, TAG_MATRIX_RESULT, MPI_COMM_WORLD, &requests[i]);
         }
+        debug("Waiting while all (%i) peer submit result matrix\n", real_workers_count);
         MPI_Waitall(real_workers_count, requests, statuses);
         free(requests);
         free(statuses);
+        debug("Root done");
     }
 }
 
@@ -129,7 +146,7 @@ int peer_communication() {
     MPI_Bcast(B.a, B.width * B.height, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     debug("Matrix B (%p) has been received: width=%d, height=%d\n", B.a, B.width, B.height);
 
-    if (async == 0) {
+    if (async == 0 || 1) {
         MPI_Recv(&a_row_count, 1, MPI_INT, 0, TAG_BLOCK_SIZE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     } else {
         MPI_Request request;
